@@ -1,0 +1,452 @@
+<html>
+<head>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <h1 style="text-align: center;">Library Client</h1>
+    <div id="main-menu">
+                <table style="margin: 0 auto;">
+                    <tbody><tr>
+                        <td><button style="border: 1px solid black; padding: 2px; background-color: rgba(0, 0, 255, 0.75); color: white; font-weight: bold; cursor: pointer;" onclick="homeSelected()">Home</button></td><td><button style="border: 1px solid black; padding: 2px; background-color: rgba(0, 0, 255, 0.75); color: white; font-weight: bold; cursor: pointer;" onclick="productsSelected()">Products</button></td><td><button style="border: 1px solid black; padding: 2px; background-color: rgba(0, 0, 255, 0.75); color: white; font-weight: bold; cursor: pointer;" onclick="categoriesSelected()">Categories</button></td>
+                    </tr>
+                </tbody></table></div>
+    <br>
+    <div id="output"><p style="text-align: center;">Welcome</p></div>
+    <div id="output"></div>
+</body>
+
+<script>
+
+    // ON PAGE LOAD EVENT
+    window.onload = () => {
+        setUpMenu();
+        homeSelected();
+    }
+
+    function setUpMenu() {
+        const buttonStyle = "border: 1px solid black; padding: 2px; background-color: rgba(0, 0, 255, 0.75); color: white; font-weight: bold; cursor: pointer;";
+        const menuItems = [
+            { title: 'Home', onClick: 'homeSelected' },
+            { title: 'Authors', onClick: 'authorsSelected' },
+            { title: 'Books', onClick: 'booksSelected' }
+        ];
+        const menuHtml = `
+                <table style="margin: 0 auto;">
+                    <tr>
+                        ${menuItems.map(mi => (`<td><button style="${buttonStyle}" onclick="${mi.onClick}()">${mi.title}</button></td>`)).join('')}
+                    </tr>
+                </table>`;
+        document.getElementById('main-menu').innerHTML = menuHtml;
+    }
+
+    // MENU EVENT METHODS
+    function homeSelected() {
+        document.getElementById('output').innerHTML = '<p style="text-align: center;">Welcome</p>';
+    }
+    // MENU EVENT METHODS
+    function authorsSelected() {
+        loadAuthors();
+    }
+
+    function booksSelected() {
+        loadBooks();
+    }
+
+    // COMPONENT METHODS
+    const createViewAuthorForm = (data = null) => {
+    const tableStyle = 'border: 1px solid black; margin: 0 auto;';
+    const saveBtnStyle = 'background-color: green; color: white; font-weight: bold; cursor: pointer;';
+    const deleteBtnStyle = 'background-color: red; color: white; cursor: pointer;';
+
+    return `
+                <table style="${tableStyle}">
+                    <tbody>
+                        <tr>
+                            <th>Name</th>
+                            <td><input type="text" id="author-name" value="${data?.author?.name ?? ''}"/></td>
+                        </tr>
+                        <tr>
+                            <th>Nationality</th>
+                            <td><input type="text" id="author-nationality" value="${data?.author?.nationality ?? ''}"/></td>
+                        </tr>
+                        <tr>
+                            <th>Birthdate</th>
+                            <td><input type="date" id="author-birthdate" value="${data?.author?.birthdate ?? ''}"/></td>
+                        </tr>
+                        <tr>
+                            <th>Books</th>
+                            <td>
+                                <table style="border: 1px solid black; width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>ISBN</th>
+                                            <th>Category</th>
+                                            <th>Publication Year</th>
+                                            <th>Delete</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${data.books?.length > 0
+                                            ? data.books.map(b => `
+                                                <tr style="text-align: center;">
+                                                    <td>${b.title}</td>
+                                                    <td>${b.ISBN}</td>
+                                                    <td>${b.category}</td>
+                                                    <td>${b.publicationYear}</td>
+                                                    <td style="text-align: center;"><button style="${deleteBtnStyle}" onclick="deleteBookFromAuthor(${data.author?.id}, ${b.id})">X</button></td>
+                                                </tr>`).join('')
+                                            : '<tr><td colspan="4" style="text-align: center; color: gray;">No books</td></tr>'
+                                        }
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <th>Add Book</th>
+                            <td>
+                                <select id="book-select">
+                                    <option value="">- Select a book -</option>
+                                    ${data.allBooks
+                                        ?.filter(b => !data.books?.some(ab => ab.id === b.id))  // filter out already assigned books
+                                        .map(b => `<option value="${b.id}">${b.title}</option>`)
+                                        .join('') 
+                                    }
+                                </select>
+                                <button 
+                                    onclick="addBookToAuthor(${data.author?.id})"
+                                    style="background-color: green; color: white; font-weight: bold; cursor: pointer; margin-left: 4px;">
+                                    + Add
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" style="text-align: center;">
+                                <button onclick="${data.onSave}(${data.author?.id ?? ''})" style="${saveBtnStyle}">Save</button>
+                                <button onclick="closeAuthorForm()" style="background-color: red; color: white; font-weight: bold; cursor: pointer; margin-left: 4px;">Close</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>`;
+    };
+    function closeAuthorForm() {
+            loadAuthors();
+    }
+
+    // COMPONENT METHODS
+    const createViewBookForm = (data = null) => {
+    const tableStyle = 'border: 1px solid black; margin: 0 auto;';
+    const saveBtnStyle = 'background-color: green; color: white; font-weight: bold; cursor: pointer;';
+    const deleteBtnStyle = 'background-color: red; color: white; cursor: pointer;';
+
+    return `
+                <table style="${tableStyle}">
+                    <tbody>
+                        <tr>
+                            <th>Title</th>
+                            <td><input type="text" id="book-title" value="${data?.book?.title ?? ''}"/></td>
+                        </tr>
+                        <tr>
+                            <th>Category</th>
+                            <td><input type="text" id="book-category" value="${data?.book?.category ?? ''}"/></td>
+                        </tr>
+                        <tr>
+                            <th>Publication year</th>
+                            <td><input type="number" id="book-publicationYear" value="${data?.book?.publicationYear ?? ''}"/></td>
+                        </tr>
+                        <tr>
+                            <th>ISBN</th>
+                            <td><input type="text" id="book-ISBN" value="${data?.book?.ISBN ?? ''}"/></td>
+                        </tr>
+                        <tr>
+                            <th>Authors</th>
+                            <td>
+                                <table style="border: 1px solid black; width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Nationality</th>
+                                            <th>Birthdate</th>
+                                            <th>Delete</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${data.authors?.length > 0
+                                            ? data.authors.map(a => `
+                                                <tr style="text-align: center;">
+                                                    <td>${a.name}</td>
+                                                    <td>${a.nationality}</td>
+                                                    <td>${a.birthdate}</td>
+                                                    <td style="text-align: center;"><button style="${deleteBtnStyle}" onclick="deleteAuthorFromBook(${data.book?.id}, ${a.id})">X</button></td>
+                                                </tr>`).join('')
+                                            : '<tr><td colspan="3" style="text-align: center; color: gray;">No authors</td></tr>'
+                                        }
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <th>Add Author</th>
+                            <td>
+                                <select id="author-select">
+                                    <option value="">- Select an author -</option>
+                                    ${data.allAuthors
+                                        ?.filter(a => !data.authors?.some(ab => ab.id === a.id))  // filter out already assigned books
+                                        .map(a => `<option value="${a.id}">${a.name}</option>`)
+                                        .join('') 
+                                    }
+                                </select>
+                                <button 
+                                    onclick="addAuthorToBook(${data.book?.id})"
+                                    style="background-color: green; color: white; font-weight: bold; cursor: pointer; margin-left: 4px;">
+                                    + Add
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" style="text-align: center;">
+                                <button onclick="${data.onSave}(${data.book?.id ?? ''})" style="${saveBtnStyle}">Save</button>
+                                <button onclick="closeBookForm()" style="background-color: red; color: white; font-weight: bold; cursor: pointer; margin-left: 4px;">Close</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>`;
+    };
+    function closeBookForm() {
+            loadBooks();
+    }
+
+            const createTable = (data) => {
+                const tableStyle = 'border: 1px solid black; margin: 0 auto;';
+                const addBtnStyle = 'background-color: green; color: white; font-weight: bold; cursor: pointer;';
+                const editBtnStyle = 'background-color: yellow; cursor: pointer;';
+                const deleteBtnStyle = 'background-color: red; color: white; cursor: pointer;';
+                const noDataTemplate = `<div style="${tableStyle} width: max-content; padding: 5px; text-align: center;"><p>No data available</p><button onclick="${data.onCreate}()" style="${addBtnStyle}">+ Add New</button></div>`;
+                return data.rows.length <= 0 ? noDataTemplate : `
+                    <table style="${tableStyle}">
+                        <thead>
+                            <tr>
+                                ${data.columns.map(x => `<th>${x}</th>`).join('')}
+                                <th>Edit</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${
+                                data.rows.map(rd => `
+                                    <tr>
+                                        ${rd.rowData.map(v => `<td>${v}</td>`).join('')}
+                                        <td style="text-align: center;"><button style="${editBtnStyle}" onclick="${data.onEdit}(${rd.id})">E</button></td>
+                                        <td style="text-align: center;"><button style="${deleteBtnStyle}" onclick="${data.onDelete}(${rd.id}, '${rd.label}')">X</button></td>
+                                    </tr>`).join('')
+                            }
+                            <tr>
+                                <td colspan="${data.columns.length + 2}" style="text-align: center;">
+                                    <button onclick="${data.onCreate}()" style="${addBtnStyle}">+ Add New</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>`;
+            }
+
+
+
+    // Author CRUD OPS
+    function loadAuthors() {
+        axios
+            .get('http://localhost:8080/authors')
+            .then((r) => {
+                const response = r.data;
+                const tableObject = {
+                    columns: [ 'Name', 'Nationality', 'Birthdate'],
+                    rows: response.map(x => ({
+                        id: x.id,
+                        label: x.name,
+                        rowData: [ x.name, x.nationality, x.birthdate]
+                    })),
+                    onCreate: 'createNewAuthor',
+                    onEdit: 'editAuthor',
+                    onDelete: 'deleteAuthor'
+                };
+                const outHtml = createTable(tableObject);
+                document.getElementById('output').innerHTML = outHtml;
+            })
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+
+    function createNewAuthor() {
+        axios
+            .get('http://localhost:8080/books')
+            .then(r => {
+                const viewAuthorFormData = {
+                    allBooks: r.data,
+                    onSave: 'saveAuthor'
+                };
+                document.getElementById('output').innerHTML = createViewAuthorForm(viewAuthorFormData);
+            })
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+    function editAuthor(id) {
+        Promise
+            .all([
+                axios.get(`http://localhost:8080/authors/${id}`),
+                axios.get(`http://localhost:8080/authors/${id}/books`),
+                axios.get(`http://localhost:8080/books`)
+            ])
+            .then(([ authorRes, bookRes, allBooksRes ]) => {
+                const viewAuthorFormData = {
+                    author: authorRes.data,
+                    books: bookRes.data,
+                    allBooks: allBooksRes.data,
+                    onSave: 'saveAuthor'
+                };
+                document.getElementById('output').innerHTML = createViewAuthorForm(viewAuthorFormData);
+            })
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+
+    function  addBookToAuthor(authorId) {
+        const bookId = document.getElementById('book-select').value;
+        
+        if (!bookId) return alert('Please select a book');
+        axios
+            .post(`http://localhost:8080/authors/${authorId}/books/${bookId}`)
+            .then(() => editAuthor(authorId))  // reload the form
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+
+    function deleteBookFromAuthor(authorId, bookId) {
+        if (!confirm('Remove this book from author?')) return;
+        axios
+            .delete(`http://localhost:8080/authors/${authorId}/books/${bookId}`)
+            .then(() => editAuthor(authorId))
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+
+    function saveAuthor(id) {
+        const author = {
+            id,
+            name: document.getElementById('author-name').value,
+            nationality: document.getElementById('author-nationality').value,
+            birthdate: document.getElementById('author-birthdate').value,
+        };
+        console.log(author);
+        (id ? axios.put(`http://localhost:8080/authors/${id}`, author) : axios.post('http://localhost:8080/authors', author))
+            .then(() => loadAuthors())
+            .catch(e => alert(`ERROR: ${e.message}`)); 
+    }
+
+    function deleteAuthor(id, name){
+         const confirmation = confirm(`Do you want to delete '${name}'`);
+            if (confirmation) {
+                axios
+                    .delete(`http://localhost:8080/authors/${id}`)
+                    .then(() => loadAuthors())
+                    .catch(e => alert(`ERROR: ${e.message}`));
+            }
+    }
+
+
+    // Book CRUD OPS
+    function loadBooks() {
+        axios
+            .get('http://localhost:8080/books')
+            .then((r) => {
+                const response = r.data;
+                const tableObject = {
+                    columns: [ 'Title', 'Category', 'Publication year', 'ISBN'],
+                    rows: response.map(x => ({
+                        id: x.id,
+                        label: x.title,
+                        rowData: [ x.title, x.category, x.publicationYear, x.ISBN]
+                    })),
+                    onCreate: 'createNewBook',
+                    onEdit: 'editBook',
+                    onDelete: 'deleteBook'
+                };
+                const outHtml = createTable(tableObject);
+                document.getElementById('output').innerHTML = outHtml;
+            })
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+
+    function createNewBook() {
+        axios
+            .get('http://localhost:8080/authors')
+            .then(r => {
+                const viewBookFormData = {
+                    allAuthors: r.data,
+                    onSave: 'saveBook'
+                };
+                document.getElementById('output').innerHTML = createViewBookForm(viewBookFormData);
+            })
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+    function editBook(id) {
+        Promise
+            .all([
+                axios.get(`http://localhost:8080/books/${id}`),
+                axios.get(`http://localhost:8080/books/${id}/authors`),
+                axios.get(`http://localhost:8080/authors`)
+            ])
+            .then(([ bookRes, authorRes, allAuthorsRes ]) => {
+                const viewBookFormData = {
+                    book: bookRes.data,
+                    authors: authorRes.data,
+                    allAuthors: allAuthorsRes.data,
+                    onSave: 'saveBook'
+                };
+                document.getElementById('output').innerHTML = createViewBookForm(viewBookFormData);
+            })
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+
+
+    /////HERE I STOPPED
+    function  addAuthorToBook(bookId) {
+        const authorId = document.getElementById('author-select').value;
+        if (!authorId) return alert('Please select an author');
+        axios
+            .post(`http://localhost:8080/books/${bookId}/authors/${authorId}`)
+            .then(() => {
+                console.log(bookId);
+                editBook(bookId)})  // reload the form
+                
+            .catch(e => alert(`ERROR: ${e.message}`));      
+    }
+
+    function deleteAuthorFromBook(bookId, authorId) {
+        if (!confirm('Remove this author from book?')) return;
+        axios
+            .delete(`http://localhost:8080/books/${bookId}/authors/${authorId}`)
+            .then(() => editBook(bookId))
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+
+    function saveBook(id) {
+        const book = {
+            id,
+            title: document.getElementById('book-title').value,
+            category: document.getElementById('book-category').value,
+            publicationYear: document.getElementById('book-publicationYear').value,
+            ISBN: document.getElementById('book-ISBN').value,
+        };
+        (id ? axios.put(`http://localhost:8080/books/${id}`, book) : axios.post('http://localhost:8080/books', book))
+            .then(() => loadBooks())
+            .catch(e => alert(`ERROR: ${e.message}`));
+    }
+     
+    function deleteBook(id, title){
+         const confirmation = confirm(`Do you want to delete '${title}'`);
+            if (confirmation) {
+                axios
+                    .delete(`http://localhost:8080/books/${id}`)
+                    .then(() => loadBooks())
+                    .catch(e => alert(`ERROR: ${e.message}`));
+            }
+    }
+</script>
+</html>
